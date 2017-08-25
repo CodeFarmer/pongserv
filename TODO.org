@@ -1,6 +1,6 @@
 - [X] Write screen and ball render loop
 - [X] Add court physics
-- [ ] Render paddles
+- [X] Render paddles
 - [ ] Add paddle physics
   - [ ] Simple physics
   - [ ] Original Pong-style 8-direction physics
