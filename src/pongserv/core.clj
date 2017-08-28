@@ -14,3 +14,17 @@
 
 (defn translate [[x y width height] dx dy]
   [(+ x dx) (+ y dy) width height])
+
+(defmacro in-thread
+  [& body]
+  `(.start (Thread. (fn [] ~@body))))
+
+(defmacro until
+  "Repeatedly execute body until test returns false.
+
+   cf. (while)"
+  [test & body]
+  `(loop []
+     (when (not ~test)
+       ~@body
+       (recur))))

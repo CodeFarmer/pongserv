@@ -1,7 +1,8 @@
 (ns pongserv.main
   (:require [quil.core :as q]
             [quil.middleware :as m]
-            [pongserv.core :refer [centred-rect rects-collide? translate]]))
+            [pongserv.core :refer [centred-rect rects-collide? translate]]
+            [pongserv.server :refer [create-network-server]]))
 
 (def ^:const WIDTH  800)
 (def ^:const HEIGHT 800)
@@ -13,7 +14,7 @@
 
 (def ^:const PADDLE_SPEED 1)
  ;; how close can the centre of the paddle get to the edge?
-(def ^:const PADDLE_LIMIT 50)
+(def ^:const PADDLE_LIMIT 60)
 
 (def ^:const SPEED_FACTOR 4)
 (def ^:const FPS 30)
@@ -51,6 +52,8 @@
 (defn setup []
 
   (q/frame-rate FPS)
+
+  (swap! game-state assoc :server-socket (create-network-server game-state nil))
 
   {:p (map #(/ % 5) [WIDTH HEIGHT])
    :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
@@ -90,10 +93,16 @@
 
   (let [y (:left-paddle state)]))
 
+(defn shutdown [_]
+  (if-let [sock (get @game-state :server-socket)]
+    (.close sock)))
+
 (q/defsketch pongserv
-  :title "Let us play Pong."  :size [WIDTH HEIGHT]
+  :title "Let us play Pong."
+  :size [WIDTH HEIGHT]
   :setup setup
   :update update-state
   :draw draw-state
   :features [:keep-on-top]
-  :middleware [m/fun-mode])
+  :middleware [m/fun-mode]
+  :on-close shutdown)
