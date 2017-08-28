@@ -1,8 +1,9 @@
 (ns pongserv.main
   (:require [quil.core :as q]
             [quil.middleware :as m]
-            [pongserv.core :refer [centred-rect rects-collide? translate]]
-            [pongserv.server :refer [create-network-server]]))
+            [pongserv.core :refer [centred-rect rects-collide? until translate]]
+            [pongserv.server :refer [create-network-server]])
+  (:import  [java.io BufferedReader PrintWriter InputStreamReader OutputStreamWriter]))
 
 (def ^:const WIDTH  800)
 (def ^:const HEIGHT 800)
@@ -19,7 +20,8 @@
 (def ^:const SPEED_FACTOR 4)
 (def ^:const FPS 30)
 
-(def game-state (atom {:inputs {:left :stop :right :stop}}))
+(def game-state (atom {:inputs {:left :stop :right :stop}
+                       :players {:left nil :right nil}}))
 
 (defn paddle-rect [side centre-y]
   
@@ -49,16 +51,6 @@
        (- dy)
        dy)]))
 
-(defn setup []
-
-  (q/frame-rate FPS)
-
-  (swap! game-state assoc :server-socket (create-network-server game-state nil))
-
-  {:p (map #(/ % 5) [WIDTH HEIGHT])
-   :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
-   :left-paddle  (/ HEIGHT 2)
-   :right-paddle (/ HEIGHT 2)})
 
 (defn move-paddle [side paddle]
   (let [input (get (:inputs @game-state) side)]
@@ -66,6 +58,7 @@
       (= :up input)   (max PADDLE_LIMIT            (- paddle PADDLE_SPEED))
       (= :down input) (min (- HEIGHT PADDLE_LIMIT) (+ paddle PADDLE_SPEED))
       :else paddle)))
+
 
 (defn update-state [{:keys [v p left-paddle right-paddle]}]
 
@@ -93,9 +86,55 @@
 
   (let [y (:left-paddle state)]))
 
+(defn new-player [side socket]
+  {:side side
+   :input  (-> socket
+               .getInputStream
+               InputStreamReader.
+               BufferedReader.) 
+   :output (-> socket
+               .getOutputStream
+               OutputStreamWriter.
+               PrintWriter.)})
+
+(defn send-message [player message]
+  (let [s (:output player)]
+    (.println s message)
+    (.flush s)))
+
+(defn read-message [player]
+  (.trim (.readLine (:input player))))
+
+(defn client-handler [state-atom socket]
+  (let [{:keys [left right]} (:players @state-atom)
+        player (cond
+                 (not left)  (new-player :left  socket)
+                 (not right) (new-player :right socket)
+                 :else nil)]
+    (if player
+      (do (swap! state-atom assoc-in [:players (:side player)] player)
+          (until
+           (.isClosed socket)
+           (send-message player (System/currentTimeMillis))
+           (Thread/sleep 1000))
+          (swap! state-atom assoc-in [:players (:side player)] nil))
+      (.write socket (.getBytes "Game is full, come back later\n" "UTF_8")))))
+
+(defn setup []
+
+  (q/frame-rate FPS)
+
+  (swap! game-state assoc :server-socket (create-network-server game-state client-handler))
+
+  {:p (map #(/ % 5) [WIDTH HEIGHT])
+   :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
+   :left-paddle  (/ HEIGHT 2)
+   :right-paddle (/ HEIGHT 2)})
+
 (defn shutdown [_]
   (if-let [sock (get @game-state :server-socket)]
-    (.close sock)))
+    (if (not (.isClosed sock))
+      (.close sock))))
 
 (q/defsketch pongserv
   :title "Let us play Pong."
