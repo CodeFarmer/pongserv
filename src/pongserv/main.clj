@@ -1,6 +1,7 @@
 (ns pongserv.main
   (:require [quil.core :as q]
-            [quil.middleware :as m]))
+            [quil.middleware :as m]
+            [pongserv.core :refer [centred-rect rects-collide? translate]]))
 
 (def ^:const WIDTH  800)
 (def ^:const HEIGHT 800)
@@ -12,23 +13,11 @@
 
 (def ^:const SPEED_FACTOR 4)
 
-(defn rects-collide? [[x  y  width  height]
-                      [x' y' width' height']]
-  (if (or (< x' (+ x width))
-          (> (+ x' width') x)
-          (< y' (+ y height))
-          (< (+ y' height') y))
-    false
-    true))
-
-(defn centred-rect [x y width height]
-  [(- x (/ width 2)) (- y (/ height 2)) width height])
-
 (defn paddle-rect [side centre-y]
   
   (centred-rect
    (if (= :left side)
-     PADDLE_DISTANCE
+     PADDLE-DISTANCE
      (- WIDTH PADDLE-DISTANCE))
    centre-y
    PADDLE-DEPTH
@@ -36,9 +25,6 @@
 
 (defn ball-rect [x y]
   (centred-rect x y BALL-SIZE BALL-SIZE))
-
-(defn translate [[x y width height] dx dy]
-  [(+ x dx) (+ y dy) width height])
 
 (defn update-v [v ball court-width court-height & obstacle-rects]
   (let [[dx dy] v
@@ -56,9 +42,9 @@
        dy)]))
 
 (defn setup []
-  ; Set frame rate to 30 frames per second.
+
   (q/frame-rate 30)
-  ; setup function returns initial state
+
   {:p (map #(/ % 5) [WIDTH HEIGHT])
    :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
    :left-paddle  (/ HEIGHT 2)
@@ -68,10 +54,11 @@
 
   (let [ball (apply ball-rect p)
         lpr  (paddle-rect :left left-paddle)
-        rpr  (paddle-rect :right right-paddle)]
+        rpr  (paddle-rect :right right-paddle)
+        v'   (update-v v ball WIDTH HEIGHT lpr rpr)]
     
-    {:p (map + v p)
-     :v (update-v v ball WIDTH HEIGHT lpr rpr)
+    {:p (map + v' p)
+     :v v'
      :left-paddle  left-paddle
      :right-paddle right-paddle}))
 
