@@ -72,6 +72,7 @@
      :left-paddle  (move-paddle :left  left-paddle)
      :right-paddle (move-paddle :right right-paddle)}))
 
+
 (defn draw-state [state]
 
   (q/background 0 0 0)
@@ -86,7 +87,9 @@
 
   (let [y (:left-paddle state)]))
 
+
 (defn new-player [side socket]
+
   {:side side
    :input  (-> socket
                .getInputStream
@@ -95,7 +98,9 @@
    :output (-> socket
                .getOutputStream
                OutputStreamWriter.
-               PrintWriter.)})
+               PrintWriter.)
+   :socket socket})
+
 
 (defn send-message [player message]
   (let [s (:output player)]
@@ -103,14 +108,23 @@
     (.flush s)))
 
 (defn read-message [player]
-  (println "JGG-DEBUG: (read-message" player ")")
   (-> player
       :input
       .readLine
       .trim
       .toLowerCase))
 
+
 (defn client-handler [state-atom socket]
+
+  (defn join-game [player]
+    (swap! state-atom assoc-in [:players (:side player)] player))
+
+  (defn leave-game [player]
+    (swap! state-atom assoc-in [:players (:side player)] nil))
+
+  (defn set-input-state [player direction]
+    (swap! state-atom assoc-in [:inputs (:side player)] direction))
 
   (let [{:keys [left right]} (:players @state-atom)
         player (cond
@@ -118,27 +132,31 @@
                  (not right) (new-player :right socket)
                  :else nil)]
     (if player
+      
       (do
-        (swap! state-atom assoc-in [:players (:side player)] player)
+        (join-game player)
         (try
           (loop [p player]
             
             (let [message (read-message player)]
               
               (cond
-                (= "u" message) (swap! state-atom assoc-in [:inputs (:side player)] :up)
-                (= "d" message) (swap! state-atom assoc-in [:inputs (:side player)] :down)
-                (= "x" message) (swap! state-atom assoc-in [:inputs (:side player)] :stop)))
+                (= "u" message) (set-input-state player :up)
+                (= "d" message) (set-input-state player :down)
+                (= "x" message) (set-input-state player :stop)))
             
-            (Thread/sleep 1000)
+            (Thread/sleep 10) ;; avoid flooding the server
             (recur p))
           
           (catch Exception e
-            (do (swap! state-atom assoc-in [:players (:side player)] nil)
-                (println e)))))
-      (.write socket (.getBytes "Game is full, come back later\n" "UTF_8")))))
+            (leave-game player))))
 
-(defn setup []
+      (let [os (PrintWriter. (OutputStreamWriter. (.getOutputStream socket)))]
+        (.println os "Game is full, come back later")
+        (.flush os)
+        (.close socket)))))
+
+(defn setup! []
 
   (q/frame-rate FPS)
 
@@ -149,17 +167,25 @@
    :left-paddle  (/ HEIGHT 2)
    :right-paddle (/ HEIGHT 2)})
 
-(defn shutdown [_]
+(defn shutdown! [_]
+  
   (if-let [sock (get @game-state :server-socket)]
     (if (not (.isClosed sock))
-      (.close sock))))
+      (.close sock)))
+
+  (doseq [side (keys (:players @game-state))]
+    (-> @game-state
+        :players
+        side
+        :socket
+        .close)))
 
 (q/defsketch pongserv
   :title "Let us play Pong."
   :size [WIDTH HEIGHT]
-  :setup setup
+  :setup setup!
   :update update-state
   :draw draw-state
   :features [:keep-on-top]
   :middleware [m/fun-mode]
-  :on-close shutdown)
+  :on-close shutdown!)
