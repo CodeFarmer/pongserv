@@ -103,22 +103,39 @@
     (.flush s)))
 
 (defn read-message [player]
-  (.trim (.readLine (:input player))))
+  (println "JGG-DEBUG: (read-message" player ")")
+  (-> player
+      :input
+      .readLine
+      .trim
+      .toLowerCase))
 
 (defn client-handler [state-atom socket]
+
   (let [{:keys [left right]} (:players @state-atom)
         player (cond
                  (not left)  (new-player :left  socket)
                  (not right) (new-player :right socket)
                  :else nil)]
     (if player
-      (do (swap! state-atom assoc-in [:players (:side player)] player)
-          (until
-           (.isClosed socket)
-           (send-message player (System/currentTimeMillis))
-           (Thread/sleep 1000))
-          (println "Socket" socket "closed.")
-          (swap! state-atom assoc-in [:players (:side player)] nil))
+      (do
+        (swap! state-atom assoc-in [:players (:side player)] player)
+        (try
+          (loop [p player]
+            
+            (let [message (read-message player)]
+              
+              (cond
+                (= "u" message) (swap! state-atom assoc-in [:inputs (:side player)] :up)
+                (= "d" message) (swap! state-atom assoc-in [:inputs (:side player)] :down)
+                (= "x" message) (swap! state-atom assoc-in [:inputs (:side player)] :stop)))
+            
+            (Thread/sleep 1000)
+            (recur p))
+          
+          (catch Exception e
+            (do (swap! state-atom assoc-in [:players (:side player)] nil)
+                (println e)))))
       (.write socket (.getBytes "Game is full, come back later\n" "UTF_8")))))
 
 (defn setup []
