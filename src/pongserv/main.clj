@@ -6,25 +6,32 @@
 (def ^:const WIDTH  800)
 (def ^:const HEIGHT 800)
 
-(def ^:const BALL-SIZE       24)
-(def ^:const PADDLE-HEIGHT   80)
-(def ^:const PADDLE-DEPTH    24)
-(def ^:const PADDLE-DISTANCE 50)
+(def ^:const BALL_SIZE       24)
+(def ^:const PADDLE_HEIGHT   80)
+(def ^:const PADDLE_DEPTH    24)
+(def ^:const PADDLE_DISTANCE 50)
+
+(def ^:const PADDLE_SPEED 1)
+ ;; how close can the centre of the paddle get to the edge?
+(def ^:const PADDLE_LIMIT 50)
 
 (def ^:const SPEED_FACTOR 4)
+(def ^:const FPS 30)
+
+(def game-state (atom {:inputs {:left :stop :right :stop}}))
 
 (defn paddle-rect [side centre-y]
   
   (centred-rect
    (if (= :left side)
-     PADDLE-DISTANCE
-     (- WIDTH PADDLE-DISTANCE))
+     PADDLE_DISTANCE
+     (- WIDTH PADDLE_DISTANCE))
    centre-y
-   PADDLE-DEPTH
-   PADDLE-HEIGHT))
+   PADDLE_DEPTH
+   PADDLE_HEIGHT))
 
 (defn ball-rect [x y]
-  (centred-rect x y BALL-SIZE BALL-SIZE))
+  (centred-rect x y BALL_SIZE BALL_SIZE))
 
 (defn update-v [v ball court-width court-height & obstacle-rects]
   (let [[dx dy] v
@@ -43,12 +50,19 @@
 
 (defn setup []
 
-  (q/frame-rate 30)
+  (q/frame-rate FPS)
 
   {:p (map #(/ % 5) [WIDTH HEIGHT])
    :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
    :left-paddle  (/ HEIGHT 2)
    :right-paddle (/ HEIGHT 2)})
+
+(defn move-paddle [side paddle]
+  (let [input (get (:inputs @game-state) side)]
+    (cond
+      (= :up input)   (max PADDLE_LIMIT            (- paddle PADDLE_SPEED))
+      (= :down input) (min (- HEIGHT PADDLE_LIMIT) (+ paddle PADDLE_SPEED))
+      :else paddle)))
 
 (defn update-state [{:keys [v p left-paddle right-paddle]}]
 
@@ -59,8 +73,8 @@
     
     {:p (map + v' p)
      :v v'
-     :left-paddle  left-paddle
-     :right-paddle right-paddle}))
+     :left-paddle  (move-paddle :left  left-paddle)
+     :right-paddle (move-paddle :right right-paddle)}))
 
 (defn draw-state [state]
 
