@@ -117,6 +117,7 @@
            (.isClosed socket)
            (send-message player (System/currentTimeMillis))
            (Thread/sleep 1000))
+          (println "Socket" socket "closed.")
           (swap! state-atom assoc-in [:players (:side player)] nil))
       (.write socket (.getBytes "Game is full, come back later\n" "UTF_8")))))
 
