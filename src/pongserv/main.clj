@@ -80,7 +80,6 @@
   (q/fill 255 255 255)
   
   (let [[x y]   (:p state)]
-    ;; (println x y dx dy)
     (apply q/rect (ball-rect x y))
     (apply q/rect (paddle-rect :left  (:left-paddle state)))
     (apply q/rect (paddle-rect :right (:right-paddle state))))
@@ -103,9 +102,10 @@
 
 
 (defn send-message [player message]
-  (let [s (:output player)]
-    (.println s message)
-    (.flush s)))
+  (-> player
+      :output
+      (println message)
+      .flush))
 
 (defn read-message [player]
   (-> player
