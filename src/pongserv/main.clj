@@ -60,19 +60,6 @@
       :else paddle)))
 
 
-(defn update-state [{:keys [v p left-paddle right-paddle]}]
-
-  (let [ball (apply ball-rect p)
-        lpr  (paddle-rect :left left-paddle)
-        rpr  (paddle-rect :right right-paddle)
-        v'   (update-v v ball WIDTH HEIGHT lpr rpr)]
-    
-    {:p (map + v' p)
-     :v v'
-     :left-paddle  (move-paddle :left  left-paddle)
-     :right-paddle (move-paddle :right right-paddle)}))
-
-
 (defn draw-state [state]
 
   (q/background 0 0 0)
@@ -102,10 +89,9 @@
 
 
 (defn send-message [player message]
-  (-> player
-      :output
-      (println message)
-      .flush))
+  (let [out (:output player)]
+    (.println out message)
+    (.flush out)))
 
 (defn read-message [player]
   (-> player
@@ -156,6 +142,32 @@
         (.flush os)
         (.close socket)))))
 
+(defn update-state [{:keys [v p left-paddle right-paddle]}]
+
+  (let [ball (apply ball-rect p)
+        lpr  (paddle-rect :left left-paddle)
+        rpr  (paddle-rect :right right-paddle)
+        v'   (update-v v ball WIDTH HEIGHT lpr rpr)
+        new-state 
+        
+        {:p (map + v' p)
+         :v v'
+         :left-paddle  (move-paddle :left  left-paddle)
+         :right-paddle (move-paddle :right right-paddle)}]
+
+    (doseq [side (keys (:players @game-state))]
+        (if-let [player (get (:players @game-state) side)]
+          (send-message player
+                        {:height HEIGHT
+                         :width WIDTH
+                         :side side
+                         :ball (:p new-state)
+                         :left (:left-paddle new-state)
+                         :right (:right-paddle new-state)})))
+
+    new-state))
+
+
 (defn setup! []
 
   (q/frame-rate FPS)
@@ -186,6 +198,6 @@
   :setup setup!
   :update update-state
   :draw draw-state
-  :features [:keep-on-top]
+  :features [(comment :keep-on-top)]
   :middleware [m/fun-mode]
   :on-close shutdown!)
