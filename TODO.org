@@ -1,18 +1,18 @@
 - [X] Write screen and ball render loop
 - [X] Add court physics
 - [X] Render paddles
+- [X] Add rules
+  - [X] Ball speeds up as game goes on
+  - [X] Paddles can't cover full width of the court
 - [-] Add paddle physics
   - [X] Simple physics
   - [ ] Original Pong-style 8-direction physics
-- [-] Add rules
-  - [ ] Ball speeds up as game goes on
-  - [X] Paddles can't cover full width of the court
 - [-] Add paddle control interface
   - [ ] Demo mode
     - [ ] Always towards the ball
   - [X] Network socket version
-- [ ] Game server
-  - [ ] Send state messages to connected clients
+- [-] Game server
+  - [X] Send state messages to connected clients
   - [ ] Scoreboard
   - [ ] Kick loser/wait next challenger logic
   - [ ] Attract loop
