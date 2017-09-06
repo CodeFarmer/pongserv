@@ -1,5 +1,6 @@
 (ns pongserv.main
-  (:require [quil.core :as q]
+  (:require [clojure.data.json :as json] 
+            [quil.core :as q]
             [quil.middleware :as m]
             [pongserv.core :refer [centred-rect rects-collide? until translate]]
             [pongserv.server :refer [create-network-server]])
@@ -158,12 +159,13 @@
     (doseq [side (keys (:players @game-state))]
         (if-let [player (get (:players @game-state) side)]
           (send-message player
-                        {:height HEIGHT
-                         :width WIDTH
-                         :side side
-                         :ball (:p new-state)
-                         :left (:left-paddle new-state)
-                         :right (:right-paddle new-state)})))
+                        (json/write-str 
+                         {:height HEIGHT
+                          :width WIDTH
+                          :side side
+                          :ball (:p new-state)
+                          :left (:left-paddle new-state)
+                          :right (:right-paddle new-state)}))))
 
     new-state))
 
