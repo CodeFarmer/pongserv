@@ -7,12 +7,19 @@
 - [-] Add paddle physics
   - [X] Simple physics
   - [ ] Original Pong-style 8-direction physics
-- [-] Add paddle control interface
-  - [ ] Demo mode
-    - [ ] Always towards the ball
+- [X] Add paddle control interface
   - [X] Network socket version
 - [-] Game server
   - [X] Send state messages to connected clients
-  - [ ] Scoreboard
+  - [X] Scoreboard
+    - [X] Player name
+    - [X] Score
   - [ ] Kick loser/wait next challenger logic
-  - [ ] Attract loop
+  
+- [-] Game modes
+  - [X] Attract loop
+  - [ ] Playing
+    - [ ] Scoring by going off the edge
+    - [ ] Resetting v and p
+    - [ ] Kick loser/wait for next challenger/attract
+    - [ ] random starting place?

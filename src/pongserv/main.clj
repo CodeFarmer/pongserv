@@ -7,12 +7,14 @@
             [pongserv.server :refer [create-network-server]]))
 
 (def ^:const WIDTH  800)
-(def ^:const HEIGHT 800)
+(def ^:const HEIGHT 600)
 
 (def ^:const BALL_SIZE       24)
 (def ^:const PADDLE_HEIGHT   80)
 (def ^:const PADDLE_DEPTH    24)
 (def ^:const PADDLE_DISTANCE 50)
+
+(def ^:const SCOREBOARD_HEIGHT 80)
 
 (def ^:const PADDLE_SPEED 2)
  ;; how close can the centre of the paddle get to the edge?
@@ -65,6 +67,23 @@
       (= :down input) (min (- HEIGHT PADDLE_LIMIT) (+ paddle PADDLE_SPEED))
       :else paddle)))
 
+(defn draw-scoreboard []
+
+  (let [h (/ SCOREBOARD_HEIGHT 2)]
+    (q/text-size h)
+    (q/text-align :center)
+
+    (let [{:keys [left right]} (:players @game-state)]
+
+      (if left
+        (do
+          (q/text (str (:score left)) (/ WIDTH 3) h)
+          (q/text (str (:name left)) (/ WIDTH 3) (* 2 h))))
+
+      (if right
+        (do
+          (q/text (str (:score right)) (* 2 (/ WIDTH 3)) h)
+          (q/text (str (:name right)) (* 2 (/ WIDTH 3)) (* 2 h)))))))
 
 (defn draw-state [state]
 
@@ -72,12 +91,14 @@
 
   (q/fill 255 255 255)
   
-  (let [[x y]   (:p state)]
-    (apply q/rect (ball-rect x y))
-    (apply q/rect (paddle-rect :left  (:left-paddle state)))
-    (apply q/rect (paddle-rect :right (:right-paddle state))))
+  (draw-scoreboard)
 
-  (let [y (:left-paddle state)]))
+  (q/with-translation [0 SCOREBOARD_HEIGHT]
+    (let [[x y]   (:p state)]
+
+      (apply q/rect (ball-rect x y))
+      (apply q/rect (paddle-rect :left  (:left-paddle state)))
+      (apply q/rect (paddle-rect :right (:right-paddle state))))))
 
 (defn update-state [{:keys [v p left-paddle right-paddle last-speedup t]}]
 
@@ -112,6 +133,15 @@
 
     new-state))
 
+(def ^:const INITIAL_STATE
+  {:p (map #(/ % 5) [WIDTH HEIGHT])
+   :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
+   :left-paddle  (/ HEIGHT 2)
+   :right-paddle (/ HEIGHT 2)
+   :t 0
+   :last-speedup 0
+   ; mode is :attract or :simple - simple means if the ball goes off the edge, the other guy gets a point
+   :mode :attract})
 
 (defn setup! []
 
@@ -119,12 +149,7 @@
 
   (swap! game-state assoc :server-socket (create-network-server game-state client-handler))
 
-  {:p (map #(/ % 5) [WIDTH HEIGHT])
-   :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
-   :left-paddle  (/ HEIGHT 2)
-   :right-paddle (/ HEIGHT 2)
-   :t 0
-   :last-speedup 0})
+  INITIAL_STATE)
 
 (defn shutdown! [_]
   
@@ -141,7 +166,7 @@
 
 (q/defsketch pongserv
   :title "Let us play Pong."
-  :size [WIDTH HEIGHT]
+  :size [WIDTH (+ HEIGHT SCOREBOARD_HEIGHT)]
   :setup setup!
   :update update-state
   :draw draw-state
