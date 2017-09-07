@@ -20,11 +20,13 @@
  ;; how close can the centre of the paddle get to the edge?
 (def ^:const PADDLE_LIMIT 60)
 
-(def ^:const SPEED_FACTOR 4)
+(def ^:const STARTING_V [4 8])
 (def ^:const FPS 30)
 
 (def ^:const SPEEDUP_PERIOD_SECONDS 8)
 (def ^:const ACCEL_FACTOR 1.1)
+
+(def ^:const WINNING_SCORE 5)
 
 (def game-state (atom {:inputs {:left :stop :right :stop}
                        :players {:left nil :right nil}}))
@@ -42,17 +44,28 @@
 (defn ball-rect [x y]
   (centred-rect x y BALL_SIZE BALL_SIZE))
 
+(defn hitting-left? [v ball]
+  (let [[dx _] v
+        horiz-ball (translate ball dx 0)  [x' _ _ _] horiz-ball]
+    (<= x' 0)))
+
+(defn hitting-right? [v ball court-width]
+  (let [[dx _] v
+        horiz-ball (translate ball dx 0)  [x' _ w' _] horiz-ball]
+    (>= (+ x' w') court-width)))
+
 (defn update-v [v ball court-width court-height & obstacle-rects]
 
   (let [[dx dy] v
         horiz-ball (translate ball dx 0)  [x' _ w' _] horiz-ball
         vert-ball  (translate ball 0  dy) [_ y' _ h'] vert-ball]
 
-    [(if (or (>= (+ x' w') court-width)
-             (<= x' 0)
+    [(if (or (hitting-left? v ball)
+             (hitting-right? v ball court-width)
              (some #(rects-collide? horiz-ball %) obstacle-rects))
        (- dx)
        dx)
+
      (if (or (>= (+ y' h') court-height)
              (<= y' 0)
              (some #(rects-collide? vert-ball %) obstacle-rects))
@@ -98,26 +111,82 @@
 
       (apply q/rect (ball-rect x y))
       (apply q/rect (paddle-rect :left  (:left-paddle state)))
-      (apply q/rect (paddle-rect :right (:right-paddle state))))))
+      (apply q/rect (paddle-rect :right (:right-paddle state)))))
 
-(defn update-state [{:keys [v p left-paddle right-paddle last-speedup t]}]
+  (if (= :reset (:mode state))
+    (q/delay-frame 1000)))
+
+(defn initial-state []
+
+  {:p (map #(/ % 5) [WIDTH HEIGHT])
+   :v (map #(* (rand-nth [1 -1]) %) STARTING_V)
+   :left-paddle  (/ HEIGHT 2)
+   :right-paddle (/ HEIGHT 2)
+   :t 0
+   :last-speedup 0
+   ; mode is :attract or :simple - simple means if the ball goes off the edge, the other guy gets a point
+   :mode :attract})
+
+(defn update-state [{:keys [v p left-paddle right-paddle last-speedup t mode]}]
 
   ;; FIXME this huge let logic is disgusting
   (let [ball (apply ball-rect p)
         lpr  (paddle-rect :left left-paddle)
         rpr  (paddle-rect :right right-paddle)
+
         v' (update-v v ball WIDTH HEIGHT lpr rpr)
         speedup? (>= t (+ last-speedup (* FPS SPEEDUP_PERIOD_SECONDS)))
         v'' (if speedup? 
               (map #(* ACCEL_FACTOR %) v')
               v')
 
-        new-state {:p (map + v'' p)
-                   :v v''
-                   :left-paddle  (move-paddle :left  left-paddle)
-                   :right-paddle (move-paddle :right right-paddle)
-                   :t (inc t)
-                   :last-speedup (if speedup? t last-speedup)}]
+        left-player (:left (:players @game-state))
+        right-player (:right (:players @game-state))
+
+        mode' (cond
+                
+                (and (= mode :attract) left-player right-player)
+                (do (swap! game-state assoc-in [:players :left :score] 0)
+                    (swap! game-state assoc-in [:players :right :score] 0)
+                    :reset)
+                
+                (and (= mode :playing) 
+                     (not (and left-player right-player))) :attract
+
+                (= mode :playing)
+                (do 
+                  (cond
+                    (and right-player
+                         (hitting-left? v ball))
+                    (do (swap! game-state update-in [:players :right :score] inc)
+                        (if (>= (:score (:right (:players @game-state))) WINNING_SCORE)
+                          (.close (:socket left-player)))
+                        :reset)
+                    (and left-player
+                         (hitting-right? v ball WIDTH))
+                    (do (swap! game-state update-in [:players :left :score] inc)
+                        (if (>= (:score (:left (:players @game-state))) WINNING_SCORE)
+                          (.close (:socket right-player)))
+                        :reset)
+
+                    :default :playing))
+                
+                (= mode :reset)
+                :playing
+
+                :default mode)
+
+        new-state (cond 
+                    (= mode :reset) (assoc (initial-state) :mode :playing) 
+                    :default {:p (map + v'' p)
+                              :v v''
+                              :left-paddle  (move-paddle :left  left-paddle)
+                              :right-paddle (move-paddle :right right-paddle)
+                              :t (inc t)
+                              :last-speedup (if speedup? t last-speedup)
+                              :mode mode'})]
+
+    (println mode mode')
 
     (doseq [side (keys (:players @game-state))]
         (if-let [player (get (:players @game-state) side)]
@@ -130,18 +199,7 @@
                           :left (:left-paddle new-state)
                           :right (:right-paddle new-state)
                           :t t}))))
-
     new-state))
-
-(def ^:const INITIAL_STATE
-  {:p (map #(/ % 5) [WIDTH HEIGHT])
-   :v [SPEED_FACTOR (- (* 2  SPEED_FACTOR))]
-   :left-paddle  (/ HEIGHT 2)
-   :right-paddle (/ HEIGHT 2)
-   :t 0
-   :last-speedup 0
-   ; mode is :attract or :simple - simple means if the ball goes off the edge, the other guy gets a point
-   :mode :attract})
 
 (defn setup! []
 
@@ -149,7 +207,7 @@
 
   (swap! game-state assoc :server-socket (create-network-server game-state client-handler))
 
-  INITIAL_STATE)
+  (initial-state))
 
 (defn shutdown! [_]
   

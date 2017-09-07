@@ -9,17 +9,17 @@
   - [ ] Original Pong-style 8-direction physics
 - [X] Add paddle control interface
   - [X] Network socket version
-- [-] Game server
+- [X] Game server
   - [X] Send state messages to connected clients
   - [X] Scoreboard
     - [X] Player name
     - [X] Score
-  - [ ] Kick loser/wait next challenger logic
+  - [X] Kick loser/wait next challenger logic
   
-- [-] Game modes
+- [X] Game modes
   - [X] Attract loop
-  - [ ] Playing
-    - [ ] Scoring by going off the edge
-    - [ ] Resetting v and p
-    - [ ] Kick loser/wait for next challenger/attract
-    - [ ] random starting place?
+  - [X] Playing
+    - [X] Scoring by going off the edge
+    - [X] Resetting v and p
+    - [X] Kick loser/wait for next challenger/attract
+    - [X] random starting place?
