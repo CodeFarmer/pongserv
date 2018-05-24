@@ -4,7 +4,8 @@
             [quil.middleware :as m]
             [pongserv.player :refer [client-handler new-player read-message send-message]]
             [pongserv.core :refer [centred-rect rects-collide? until translate]]
-            [pongserv.server :refer [create-network-server]]))
+            [pongserv.server :refer [create-network-server]])
+  (:gen-class))
 
 (def ^:const WIDTH  800)
 (def ^:const HEIGHT 600)
@@ -222,12 +223,13 @@
         :socket
         .close)))
 
-(q/defsketch pongserv
-  :title "Let us play Pong."
-  :size [WIDTH (+ HEIGHT SCOREBOARD_HEIGHT)]
-  :setup setup!
-  :update update-state
-  :draw draw-state
-  :features [(comment :keep-on-top)]
-  :middleware [m/fun-mode]
-  :on-close shutdown!)
+(defn -main
+  [& args]
+  (q/sketch :title "Let us play Pong."
+            :size [WIDTH (+ HEIGHT SCOREBOARD_HEIGHT)]
+            :setup setup!
+            :update update-state
+            :draw draw-state
+            :features [(comment :keep-on-top)]
+            :middleware [m/fun-mode]
+            :on-close shutdown!))
